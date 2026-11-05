@@ -55,12 +55,26 @@ pub fn read_document(
 
 #[tauri::command]
 pub fn write_document(
+    app: tauri::AppHandle,
     state: State<'_, WorkspaceState>,
     relative_path: String,
     raw: String,
+    expected_raw: Option<String>,
 ) -> Result<serde_json::Value, CommandError> {
+    use tauri::Manager;
     let root_path = opened_root(&state)?;
-    app_fs::write_file(&root_path, &relative_path, &raw)?;
+    let backup_root = app
+        .path()
+        .app_local_data_dir()
+        .map(|p| p.join("backups"))
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    app_fs::write_file_guarded(
+        &root_path,
+        &relative_path,
+        &raw,
+        expected_raw.as_deref(),
+        Some(&backup_root),
+    )?;
     Ok(serde_json::json!({ "ok": true }))
 }
 

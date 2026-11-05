@@ -91,9 +91,23 @@ export async function serializeDocument(
 
 export async function writeDocument(
   relativePath: string,
-  raw: string
+  raw: string,
+  expectedRaw?: string
 ): Promise<{ ok: true }> {
-  return invoke("write_document", { relativePath, raw });
+  return invoke("write_document", { relativePath, raw, expectedRaw });
+}
+
+export async function confirmOverwriteExternalChanges(): Promise<boolean> {
+  const { confirm } = await import("@tauri-apps/plugin-dialog");
+  return confirm(
+    "This file changed on disk after you opened it. Overwrite it with your version? The current file is backed up first.",
+    {
+      title: "File changed on disk",
+      kind: "warning",
+      okLabel: "Overwrite",
+      cancelLabel: "Cancel",
+    }
+  );
 }
 
 /**

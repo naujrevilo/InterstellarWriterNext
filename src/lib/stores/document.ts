@@ -140,7 +140,15 @@ function createDocumentStore() {
           current.body,
           current.kind
         );
-        await api.writeDocument(current.relativePath, raw);
+        try {
+          await api.writeDocument(current.relativePath, raw, current.raw);
+        } catch (e: any) {
+          if (!String(e?.message ?? e).startsWith("fs: conflict")) throw e;
+          if (!(await api.confirmOverwriteExternalChanges())) return;
+          // Overwrite is deliberate: skip the check, the backup still runs.
+          const onDisk = await api.readDocument(current.relativePath);
+          await api.writeDocument(current.relativePath, raw, onDisk.raw);
+        }
         update((s) => ({ ...s, raw, dirty: false }));
         notifications.success("Saved");
       } catch (e: any) {

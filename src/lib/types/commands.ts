@@ -32,6 +32,7 @@ export interface TauriCommands {
   write_document: (input: {
     relativePath: string;
     raw: string;
+    expectedRaw?: string;
   }) => Promise<{ ok: true }>;
   parse_document: (input: {
     raw: string;
