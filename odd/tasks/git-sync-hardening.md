@@ -23,7 +23,7 @@ The work is tracked in the order authorized by the human: toolchain, path valida
 - T8 — S1 — route: inline/documentation — commit: N/A (no usable source Git history; `svelte-check`: 0 errores, 0 avisos; comprobación estructural correcta)
 - T9 — S1 — route: inline/ci — commit: N/A (no usable source Git history; YAML válido, matriz y comandos verificados; primera ejecución alojada pendiente)
 - T10 — S1-S2 — route: inline/verification — commit: N/A (no usable source Git history; `cargo test --locked`: 57 passed, 0 failed, 1 ignored; probe del sistema operativo: 1 passed; `svelte-check`: 0/0; build y CI: correctos)
-- T11 — S3-S4 — route: inline/repository-delivery — commit: pending
+- T11 — S3-S4 — route: inline/repository-delivery — commit: `ec4ff85` (rama `feature/stabilize-v1`; cinco unidades desde `0db3726`)
 - T12 — S5 — route: inline/local-runtime — commit: N/A
 - T13 — S3 — route: inline/live-sync — commit: pending
 - T14 — S3-S4 — route: inline/hosted-ci — commit: pending
@@ -49,3 +49,4 @@ The work is tracked in the order authorized by the human: toolchain, path valida
 - L17 — 2026-11-05 — "1 y 2. https://github.com/naujrevilo/InterstellarWriterNext\n3. Tengo como probar en Linux, Mac no\nPuedo ejecutar localmente para ver cómo quedó?"
 - L18 — Remote evidence: `https://github.com/naujrevilo/InterstellarWriterNext.git` resolves to `main` at `0db3726`, containing only a one-line README. The GitHub CLI is authenticated as `naujrevilo` with `repo` and `workflow` scopes; no credential value was logged.
 - L19 — Platform evidence: Linux can be used for manual verification. macOS remains unavailable and must stay explicitly pending.
+- L20 — T11 evidence: added `origin` for `https://github.com/naujrevilo/InterstellarWriterNext.git`, created `feature/stabilize-v1` from the remote `main` commit `0db3726`, and published five reviewable commits: frontend, Rust/Tauri backend, v1 documentation, CI/hygiene, and ODD tracking. The branch is tracked at `origin/feature/stabilize-v1`; `main` remains unchanged.
