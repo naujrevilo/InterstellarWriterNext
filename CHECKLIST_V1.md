@@ -62,8 +62,9 @@
     de Git), hace un commit inicial, modifica el worktree, invoca el servicio real `commit_and_push` y comprueba que
     la rama remota recibió el commit, con su mensaje, su padre y el contenido modificado. Esto **no** es un push a
     GitHub.
-- [ ] Push real a GitHub.
-  - Pendiente: no se ha realizado un push externo real contra un repositorio de prueba.
+- [x] Push real a GitHub.
+  - Evidencia: el servicio real `commit_and_push` publicó `5149f20` en `origin/feature/stabilize-v1`; GitHub confirma el commit
+    y sus archivos (`README.md` y `odd/tasks/git-sync-hardening.md`).
 
 ## Cross-platform
 
@@ -73,8 +74,8 @@
 
 No se marca ningún smoke test de UI como completo porque no hay evidencia de un recorrido manual completo en esta revisión.
 
-La cobertura automática de las tres plataformas está configurada en el workflow de CI (matriz `windows-latest`,
-`macos-latest` y `ubuntu-latest`); esa matriz aún no se ha ejecutado en GitHub Actions.
+La cobertura automática de las tres plataformas se ejecutó en GitHub Actions (matriz `windows-latest`,
+`macos-latest` y `ubuntu-latest`) y terminó correctamente. Esto no sustituye los recorridos manuales de interfaz.
 
 ## Calidad
 
@@ -93,6 +94,6 @@ La cobertura automática de las tres plataformas está configurada en el workflo
   - Evidencia registrada (T10): el YAML se analiza sin error y las 51 aserciones estructurales pasan; los equivalentes
     locales se ejecutaron de forma directa (`svelte-check` con 0 errores y 0 avisos, `vite build` exitoso y
     `cargo test --locked` con 57 passed / 0 failed / 1 ignored).
-- [ ] Primera ejecución alojada del workflow de CI.
-  - Pendiente: el directorio `.git` del workspace contiene solo la identidad de Engram, sin commits, referencias ni remoto,
-    así que el workflow todavía no se ha ejecutado en GitHub Actions.
+- [x] Primera ejecución alojada del workflow de CI.
+  - Evidencia: ejecución `42105342005` completada correctamente en Windows, macOS y Ubuntu:
+    https://github.com/naujrevilo/InterstellarWriterNext/actions/runs/42105342005

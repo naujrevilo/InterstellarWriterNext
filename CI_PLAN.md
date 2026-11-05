@@ -2,9 +2,8 @@
 
 > **Estado:** implementado en `.github/workflows/ci.yml`.
 >
-> El workflow está **configurado y validado estructuralmente** (parseo YAML y comprobación de comandos y matriz).
-> La **primera ejecución alojada sigue pendiente**: el directorio `.git` de este workspace contiene únicamente la identidad de
-> Engram, sin commits, referencias ni remoto, por lo que todavía no es un repositorio de trabajo listo para publicar.
+> El workflow está **configurado, validado estructuralmente y ejecutado correctamente** en Windows, macOS y Ubuntu.
+> Evidencia: [ejecución 42105342005](https://github.com/naujrevilo/InterstellarWriterNext/actions/runs/42105342005).
 
 ## Objetivo
 
@@ -61,8 +60,7 @@ Los pasos 2 a 6 y el paso 10 se ejecutan en **cada** entrada de la matriz. El pa
 
 ## Verificación local equivalente
 
-El workflow no se puede ejecutar de forma alojada desde este workspace (sin repositorio Git con remoto). La validación
-realizada localmente fue:
+La validación local equivalente fue:
 
 - parseo del archivo YAML con un parser local y comprobación estructural de disparadores, matriz y comandos.
 - `node_modules/.bin/svelte-check --tsconfig ./tsconfig.json` (equivalente local de `pnpm check`).
@@ -70,15 +68,16 @@ realizada localmente fue:
 - `cargo test --manifest-path src-tauri/Cargo.toml --locked` dentro del entorno de desarrollo de Visual Studio con
   `CC=cl` y `CXX=cl` (equivalente local del paso 10 en Windows).
 
-## Pendientes para la primera ejecución alojada
+## Estado de la ejecución alojada
 
-- [ ] Publicar el código en un repositorio Git real con remoto configurado, para que GitHub Actions pueda disparar el workflow.
-- [ ] Confirmar en la primera corrida que la instalación de paquetes de Linux, incluido `libayatana-appindicator3-dev`, resuelve en la imagen de Ubuntu del runner.
-- [ ] Confirmar que `cargo test --locked` no reporta cambios pendientes en `src-tauri/Cargo.lock`.
-- [ ] Verificar que la caché de pnpm y la de Rust se restauran correctamente en la segunda corrida.
+- [x] Código publicado en `https://github.com/naujrevilo/InterstellarWriterNext` con remoto configurado.
+- [x] Dependencias de Linux, incluido `libayatana-appindicator3-dev`, instaladas correctamente en `ubuntu-latest`.
+- [x] `cargo test --locked` completado sin modificar `src-tauri/Cargo.lock`.
+- [x] Cachés de pnpm y Rust restauradas correctamente en ejecuciones posteriores.
+- [x] Matriz completa correcta: `windows-latest`, `macos-latest` y `ubuntu-latest`.
 
 ## Fuera de alcance
 
 - Empaquetado de release (`tauri build`) en pull requests.
 - Pruebas de interfaz de usuario automatizadas.
-- Round-trip del almacén de credenciales en macOS/Linux y push real a GitHub: siguen siendo verificaciones manuales.
+- Round-trip del almacén de credenciales en macOS/Linux: sigue siendo una verificación manual.

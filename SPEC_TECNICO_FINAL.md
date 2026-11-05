@@ -677,16 +677,14 @@ Responsable de:
 - no se empaquetan bundles de release en pull requests
 - el plan y el estado de la primera ejecución están en `CI_PLAN.md`
 
-Estado actual: el workflow está configurado y validado estructuralmente; la primera ejecución alojada sigue pendiente
-porque el directorio `.git` del workspace contiene solo la identidad de Engram, sin commits, referencias ni remoto.
+Estado actual: el workflow está configurado, validado estructuralmente y ejecutado correctamente en Windows, macOS y Ubuntu.
+La ejecución `42105342005` terminó con resultado correcto: https://github.com/naujrevilo/InterstellarWriterNext/actions/runs/42105342005
 
 ### 13.4 Verificaciones manuales pendientes
 
 - recorrido completo de UI en Windows
 - smoke tests de UI en macOS y Linux
 - round-trip real en el almacén de credenciales de macOS y Linux (el de Windows ya se verificó en el host de la revisión)
-- push real a GitHub (la verificación local contra un remoto bare no cubre GitHub)
-- primera ejecución del workflow de CI en GitHub Actions
 
 ## 14. Orden histórico de implementación
 
@@ -708,10 +706,10 @@ Este orden ya se ejecutó; se conserva como narrativa de construcción del proto
 
 ## 15. Próximo paso de entrega
 
-El alcance funcional de v1 está implementado y la CI ya está incorporada: el workflow `.github/workflows/ci.yml` está configurado y validado estructuralmente, con matriz Windows/macOS/Ubuntu, verificaciones de tipos, build de producción y pruebas Rust.
+El alcance funcional de v1 está implementado y la CI ya está incorporada: el workflow `.github/workflows/ci.yml` está configurado, validado estructuralmente y terminó correctamente en la matriz Windows/macOS/Ubuntu de la ejecución `42105342005`.
 
-La verificación determinista del camino de push ya existe y no depende de la red: una prueba del servicio de Git crea un remoto bare local y un repositorio normal con identidad local, invoca `commit_and_push` y comprueba que el commit llegó a la rama remota. Esa prueba **no** es un push a GitHub.
+La verificación determinista del camino de push ya existe y no depende de la red: una prueba del servicio de Git crea un remoto bare local y un repositorio normal con identidad local, invoca `commit_and_push` y comprueba que el commit llegó a la rama remota. Además, el servicio real publicó el commit `5149f20` en `origin/feature/stabilize-v1`, por lo que el envío autenticado a GitHub también quedó verificado.
 
 El round-trip del almacén de credenciales del sistema operativo quedó verificado **solo en Windows**, en el host de esta revisión, con un probe ignorado que usa una cuenta de prueba única y siempre la elimina. Los round-trips de macOS y Linux siguen pendientes.
 
-Quedan por separado la primera ejecución alojada de esa CI (pendiente porque el directorio `.git` del workspace contiene solo la identidad de Engram, sin commits, referencias ni remoto), los recorridos manuales de UI en las tres plataformas, el round-trip del almacén de credenciales en macOS y Linux y el push real a GitHub; ninguno de esos pendientes contradice el alcance funcional descrito aquí.
+Quedan por separado los recorridos manuales de UI en las tres plataformas y el round-trip del almacén de credenciales en macOS y Linux; ninguno de esos pendientes contradice el alcance funcional descrito aquí.
