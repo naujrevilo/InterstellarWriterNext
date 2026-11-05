@@ -31,7 +31,7 @@ Un único job (`ci`) corre en las tres plataformas soportadas:
 
 | Componente | Versión | Cómo se instala |
 | --- | --- | --- |
-| pnpm | `11.18.0` | `pnpm/action-setup@v4` con `version: 11.18.0` y `run_install: false` |
+| pnpm | `11.18.0` | `pnpm/action-setup@v4` toma la versión declarada en `package.json` (`packageManager`) y usa `run_install: false` |
 | Node.js | `22` | `actions/setup-node@v4` con `node-version: 22` y `cache: pnpm` |
 | Rust | `stable` | `dtolnay/rust-toolchain@stable` |
 
@@ -43,7 +43,7 @@ Caché:
 ## Pasos exactos del workflow
 
 1. `actions/checkout@v4` — descarga el código del repositorio.
-2. `pnpm/action-setup@v4` — instala pnpm `11.18.0`.
+2. `pnpm/action-setup@v4` — instala la versión de pnpm `11.18.0` declarada en `package.json`.
 3. `actions/setup-node@v4` — instala Node.js `22` y activa la caché de pnpm.
 4. `pnpm install --frozen-lockfile` — instala dependencias sin modificar `pnpm-lock.yaml`.
 5. `pnpm check` — ejecuta `svelte-check --tsconfig ./tsconfig.json`.
