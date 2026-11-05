@@ -23,10 +23,10 @@ The work is tracked in the order authorized by the human: toolchain, path valida
 - T8 — S1 — route: inline/documentation — commit: N/A (no usable source Git history; `svelte-check`: 0 errores, 0 avisos; comprobación estructural correcta)
 - T9 — S1 — route: inline/ci — commit: N/A (no usable source Git history; YAML válido, matriz y comandos verificados; primera ejecución alojada pendiente)
 - T10 — S1-S2 — route: inline/verification — commit: N/A (no usable source Git history; `cargo test --locked`: 57 passed, 0 failed, 1 ignored; probe del sistema operativo: 1 passed; `svelte-check`: 0/0; build y CI: correctos)
-- T11 — S3-S4 — route: inline/repository-delivery — commit: `ec4ff85` (rama `feature/stabilize-v1`; cinco unidades desde `0db3726`)
+- T11 — S3-S4 — route: inline/repository-delivery — commit: `5149f20` (rama `feature/stabilize-v1`; cinco unidades desde `0db3726`)
 - T12 — S5 — route: inline/local-runtime — commit: N/A
-- T13 — S3 — route: inline/live-sync — commit: pending
-- T14 — S3-S4 — route: inline/hosted-ci — commit: pending
+- T13 — S3 — route: inline/live-sync — commit: `5149f20` (publicado por el servicio real `commit_and_push`)
+- T14 — S3-S4 — route: inline/hosted-ci — commit: `4e52f86` (ejecución alojada `42105342005` correcta en Windows, macOS y Ubuntu)
 
 ## Log
 
@@ -50,3 +50,7 @@ The work is tracked in the order authorized by the human: toolchain, path valida
 - L18 — Remote evidence: `https://github.com/naujrevilo/InterstellarWriterNext.git` resolves to `main` at `0db3726`, containing only a one-line README. The GitHub CLI is authenticated as `naujrevilo` with `repo` and `workflow` scopes; no credential value was logged.
 - L19 — Platform evidence: Linux can be used for manual verification. macOS remains unavailable and must stay explicitly pending.
 - L20 — T11 evidence: added `origin` for `https://github.com/naujrevilo/InterstellarWriterNext.git`, created `feature/stabilize-v1` from the remote `main` commit `0db3726`, and published five reviewable commits: frontend, Rust/Tauri backend, v1 documentation, CI/hygiene, and ODD tracking. The branch is tracked at `origin/feature/stabilize-v1`; `main` remains unchanged.
+- L21 — T12 evidence: added `scripts/dev-windows.cmd`, which locates Visual Studio through `vswhere`, activates `VsDevCmd`, and forces `CC=cl`/`CXX=cl` before starting Tauri. A first attempt reproduced `LNK1143` because the normal terminal inherited `CC=zig cc`; after the script fix, Vite returned HTTP 200 on port 1420 and `target/debug/interstellar-writer-next.exe` started successfully.
+- L22 — T13 evidence: the real `commit_and_push` service read the credential from the authenticated GitHub CLI session without printing it and published commit `5149f20` to `origin/feature/stabilize-v1`. GitHub confirms the commit contains `README.md` and `odd/tasks/git-sync-hardening.md`; the temporary helper and local exclusions were removed.
+- L23 — T14 evidence: the first hosted CI run failed before Node/Rust setup because `pnpm/action-setup` saw the pnpm version both in workflow input and `packageManager`. The duplicate workflow input was removed, `CI_PLAN.md` was aligned, and the corrected branch was published for a new hosted run.
+- L24 — T14 evidence: hosted run `42105342005` completed successfully on `windows-latest`, `macos-latest`, and `ubuntu-latest`; frontend install/check/build and Rust tests passed on every runner. The run emitted only non-blocking runner/action advisories about Node.js 20 action runtimes, the future Ubuntu runner migration, and macOS capacity. Documentation evidence was committed as `4e52f86`.
