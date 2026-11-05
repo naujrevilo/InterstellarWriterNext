@@ -1,0 +1,179 @@
+/* ---------- Local fonts ----------
+   The packaged app must never depend on a font CDN: the Tauri CSP allows
+   only `font-src 'self' data:`. Every family below is served from an asset
+   bundled by Vite, so the app works fully offline.
+   Upstream: google/fonts (Newsreader, Inter) and JetBrains/JetBrainsMono.
+   Licenses (SIL Open Font License 1.1): public/licenses/ */
+
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  font-optical-sizing: auto;
+  src: url('../../assets/fonts/newsreader/Newsreader-Variable.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Newsreader';
+  font-style: italic;
+  font-weight: 200 800;
+  font-display: swap;
+  font-optical-sizing: auto;
+  src: url('../../assets/fonts/newsreader/Newsreader-Italic-Variable.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  font-optical-sizing: auto;
+  src: url('../../assets/fonts/inter/Inter-Variable.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  font-optical-sizing: auto;
+  src: url('../../assets/fonts/inter/Inter-Italic-Variable.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url('../../assets/fonts/jetbrains-mono/JetBrainsMono-Variable.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: italic;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url('../../assets/fonts/jetbrains-mono/JetBrainsMono-Italic-Variable.woff2') format('woff2');
+}
+
+:root {
+  /* ---------- Color tokens ----------
+     Warm, paper-like. Inspired by iA Writer / Bear — quiet, premium, calm. */
+  --color-ink: #1F1B16;        /* deep warm black, not pure */
+  --color-ink-soft: #57534E;
+  --color-paper: #FAF8F4;      /* warm off-white, easy on the eyes */
+  --color-chrome: #F3F0EA;     /* slightly darker for sidebars/toolbar */
+  --color-rule: #E7E1D6;       /* separator, very subtle */
+  --color-rule-strong: #D6CFC0;
+  --color-accent: #6D28D9;     /* deep violet, premium */
+  --color-accent-soft: #EDE4FB;
+  --color-muted: #A8A199;
+  --color-danger: #B91C1C;
+  --color-warning: #B45309;
+
+  /* ---------- Typography ---------- */
+  --font-editor: 'Newsreader', 'Iowan Old Style', 'Charter', Georgia, 'Times New Roman', serif;
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
+
+  /* ---------- Type scale ---------- */
+  --text-xs: 0.6875rem;    /* 11px */
+  --text-sm: 0.8125rem;    /* 13px */
+  --text-base: 1rem;       /* 16px */
+  --text-lg: 1.125rem;     /* 18px */
+  --text-xl: 1.25rem;      /* 20px */
+  --text-2xl: 1.5rem;      /* 24px */
+  --text-3xl: 1.875rem;    /* 30px */
+
+  /* ---------- Spacing ---------- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* ---------- Layout ----------
+     Defaults are now mirrored by panelWidths store (272px = 17rem).
+     Kept here as CSS-var fallback only. The store always wins via inline style. */
+  --sidebar-width: 17rem;    /* 272px */
+  --metadata-width: 17rem;   /* 272px — narrower than before, lets the editor breathe */
+  --editor-max-width: 42rem; /* 672px — optimal reading width */
+
+  /* ---------- Shadows ----------
+     Restrained. Used only on the writing surface if at all. */
+  --shadow-elevated: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+  --shadow-focus: 0 0 0 3px rgba(109, 40, 217, 0.12);
+}
+
+/* ---------- Base reset ---------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--color-paper);
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------- Focus management ---------- */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- Scrollbar styling (subtle, warm) ---------- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+  border: 2px solid var(--color-paper);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.22);
+  background-clip: padding-box;
+  border: 2px solid var(--color-paper);
+}
+
+/* ---------- Selection ---------- */
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
+}

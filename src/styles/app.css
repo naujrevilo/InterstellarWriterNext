@@ -1,0 +1,11 @@
+/* CSS @import rules MUST come before any other rule (per the CSS
+   spec). Tokens, typography, and the Prism theme live under
+   lib/styles; we pull them in here so the bundle actually ships
+   them. */
+@import "../lib/styles/tokens.css";
+@import "../lib/styles/typography.css";
+@import "../lib/styles/prism-theme.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
