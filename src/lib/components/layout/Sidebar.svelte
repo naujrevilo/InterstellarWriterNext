@@ -3,12 +3,15 @@
   import { panelWidths, PANEL_LIMITS } from "../../stores/panelWidths";
   import type { DocumentRef, CollectionInfo } from "../../types/workspace";
   import ResizeHandle from "./ResizeHandle.svelte";
+  import NewDocumentModal from "../editor/NewDocumentModal.svelte";
 
   let { open = true }: { open?: boolean } = $props();
   let { files, selectedFile, collections, kind, root } = $derived($workspaceStore);
 
   let searchQuery = $state("");
   let activeCollection = $state<string | null>(null);
+  let newDocumentOpen = $state(false);
+  let newDocumentCollection = $state<string | null>(null);
 
   // Filter files by search query (title or relativePath).
   let visibleFiles = $derived.by(() => {
@@ -27,7 +30,7 @@
     const out: Array<{ collection: CollectionInfo; items: DocumentRef[] }> = [];
     for (const col of collections) {
       const items = visibleFiles.filter((f) => f.collection === col.name);
-      if (items.length > 0) {
+      if (items.length > 0 || !searchQuery.trim()) {
         out.push({ collection: col, items });
       }
     }
@@ -46,6 +49,11 @@
     if (selected) {
       activeCollection = file.collection ?? null;
     }
+  }
+
+  function openNewDocument(collection: string | null = null) {
+    newDocumentCollection = collection;
+    newDocumentOpen = true;
   }
 
   function kindIcon(kind: DocumentRef["kind"] | undefined): string {
@@ -104,6 +112,16 @@
     </button>
   </header>
 
+  <button
+    type="button"
+    class="sidebar-new"
+    onclick={() => openNewDocument()}
+    disabled={kind === "astro" && collections.length === 0}
+    title={kind === "astro" && collections.length === 0 ? "Create a content collection folder first" : "Create a document"}
+  >
+    <span aria-hidden="true">+</span> New document
+  </button>
+
   <div class="sidebar-search">
     <svg class="sidebar-search-icon" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.1"/>
@@ -139,7 +157,18 @@
         <section class="sidebar-group" class:sidebar-group-open={activeCollection === null || activeCollection === group.collection.name}>
           <header class="sidebar-group-header">
             <span class="sidebar-group-name">{group.collection.name}</span>
-            <span class="sidebar-group-count">{group.items.length}</span>
+            <div class="sidebar-group-actions">
+              <span class="sidebar-group-count">{group.items.length}</span>
+              {#if group.collection.relativePath}
+                <button
+                  type="button"
+                  class="sidebar-group-new"
+                  aria-label={`New document in ${group.collection.name}`}
+                  title={`New document in ${group.collection.name}`}
+                  onclick={() => openNewDocument(group.collection.name)}
+                >+</button>
+              {/if}
+            </div>
           </header>
           <ul class="sidebar-group-list">
             {#each group.items as file (file.relativePath)}
@@ -185,6 +214,15 @@
     {/if}
   </nav>
 </aside>
+
+<NewDocumentModal
+  open={newDocumentOpen}
+  {kind}
+  {collections}
+  {files}
+  initialCollection={newDocumentCollection}
+  onClose={() => (newDocumentOpen = false)}
+/>
 
 <style>
   .sidebar {
@@ -264,6 +302,31 @@
   .sidebar-action:hover {
     color: var(--color-ink);
     background: rgba(0, 0, 0, 0.04);
+  }
+
+  .sidebar-new {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin: 0 14px 10px;
+    min-height: 34px;
+    border: 1px solid var(--color-rule-strong);
+    border-radius: 6px;
+    background: white;
+    color: var(--color-ink);
+    font: 500 13px var(--font-ui);
+    cursor: pointer;
+  }
+
+  .sidebar-new:hover:not(:disabled) {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+
+  .sidebar-new:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 
   .sidebar-search {
@@ -358,6 +421,29 @@
     border-radius: 8px;
     min-width: 18px;
     text-align: center;
+  }
+
+  .sidebar-group-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .sidebar-group-new {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--color-muted);
+    cursor: pointer;
+    font-size: 16px;
+  }
+
+  .sidebar-group-new:hover {
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
   }
 
   .sidebar-group-list {

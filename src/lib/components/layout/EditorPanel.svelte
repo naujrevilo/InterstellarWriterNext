@@ -6,12 +6,14 @@
   import { setSaveHandler } from "../../features/commands/registry";
   import { githubSyncStore, githubTokenStore } from "../../stores/github";
   import { notifications } from "../../stores/notifications";
+  import * as api from "../../api/tauri";
   import { toRelativePath, basenameNoExt } from "../../utils/paths";
   import { ensureImport, componentNameFromPath } from "../../utils/mdxImport";
   import WritingSurface from "../editor/WritingSurface.svelte";
   import FontSelector from "../editor/FontSelector.svelte";
   import SyncButton from "../editor/SyncButton.svelte";
   import GitHubSettingsModal from "../editor/GitHubSettingsModal.svelte";
+  import BackupRecoveryModal from "../editor/BackupRecoveryModal.svelte";
   import Preview from "../preview/Preview.svelte";
 
   let { root, selectedFile, loading, error: wsError } = $derived($workspaceStore);
@@ -23,6 +25,11 @@
   const AUTOSAVE_DELAY_MS = 2500;
 
   let settingsOpen = $state(false);
+  let recoveryOpen = $state(false);
+  let availableBackups = $state<string[]>([]);
+  let backupsLoading = $state(false);
+  let restoringBackup = $state(false);
+  let trashingDocument = $state(false);
   let hasGithubToken = $derived($githubTokenStore.configured);
   let lastSavedAt = $state<number | null>(null);
   let saveFlash = $state(false);
@@ -49,7 +56,13 @@
 
   // Quiet autosave: waits for a pause in typing, never interrupts.
   $effect(() => {
-    if (!$preferencesStore.autosave || !doc.dirty || !doc.relativePath) return;
+    if (
+      restoringBackup ||
+      trashingDocument ||
+      !$preferencesStore.autosave ||
+      !doc.dirty ||
+      !doc.relativePath
+    ) return;
     void doc.body;
     void doc.frontmatter;
     const timer = setTimeout(() => {
@@ -67,7 +80,7 @@
   async function handleSave() {
     if (!root) return;
     if (!doc.dirty) return;
-    await documentStore.save();
+    if (!(await documentStore.save())) return;
     saveFlash = true;
     setTimeout(() => (saveFlash = false), 1200);
     lastSavedAt = Date.now();
@@ -77,6 +90,60 @@
     void workspaceStore.refresh();
     if ($preferencesStore.syncOnSave && $githubTokenStore.configured) {
       void githubSyncStore.sync();
+    }
+  }
+
+  async function handleOpenBackups() {
+    if (!selectedFile) return;
+    recoveryOpen = true;
+    backupsLoading = true;
+    availableBackups = [];
+    try {
+      availableBackups = await api.listDocumentBackups(selectedFile.relativePath);
+    } catch (e: any) {
+      recoveryOpen = false;
+      notifications.error(`Could not load backups: ${e?.message ?? e}`);
+    } finally {
+      backupsLoading = false;
+    }
+  }
+
+  async function handleRestoreBackup(backupName: string) {
+    if (!selectedFile || !root || restoringBackup) return;
+    const target = selectedFile;
+    const label = backupName === "latest.bak"
+      ? "the latest backup"
+      : backupName.replace(/\.bak$/, "");
+    restoringBackup = true;
+    try {
+      if (doc.dirty && !(await documentStore.confirmDiscardUnsavedChanges())) return;
+      if (!(await api.confirmRestoreBackup(target.relativePath, label))) return;
+      await documentStore.waitForPendingSave();
+      await api.restoreDocumentBackup(target.relativePath, backupName, doc.raw);
+      await documentStore.load(target.relativePath, target.kind);
+      recoveryOpen = false;
+      notifications.success("Backup restored");
+      void workspaceStore.refresh();
+    } catch (e: any) {
+      notifications.error(`Could not restore backup: ${e?.message ?? e}`);
+    } finally {
+      restoringBackup = false;
+    }
+  }
+
+  async function handleMoveToTrash() {
+    if (!selectedFile || trashingDocument) return;
+    const target = selectedFile;
+    trashingDocument = true;
+    try {
+      if (!(await api.confirmMoveToTrash(target.relativePath, doc.dirty))) return;
+      await documentStore.waitForPendingSave();
+      await workspaceStore.trashFile(target.relativePath);
+      notifications.success("Document moved to the system trash");
+    } catch (e: any) {
+      notifications.error(`Could not move document to trash: ${e?.message ?? e}`);
+    } finally {
+      trashingDocument = false;
     }
   }
 
@@ -231,6 +298,23 @@
       </div>
 
       <div class="toolbar-right">
+        <button
+          onclick={handleOpenBackups}
+          class="icon-btn icon-btn-text"
+          disabled={!selectedFile || backupsLoading || restoringBackup}
+          title="Restore a previous backup"
+        >
+          Backups
+        </button>
+        <button
+          onclick={handleMoveToTrash}
+          class="icon-btn icon-btn-text icon-btn-danger"
+          disabled={!selectedFile || trashingDocument}
+          title="Move this document to the system trash"
+        >
+          Trash
+        </button>
+
         <button
           onclick={() => documentStore.undo()}
           class="icon-btn"
@@ -433,6 +517,14 @@
 </div>
 
 <GitHubSettingsModal bind:open={settingsOpen} />
+<BackupRecoveryModal
+  open={recoveryOpen}
+  backups={availableBackups}
+  loading={backupsLoading}
+  restoring={restoringBackup}
+  onClose={() => (recoveryOpen = false)}
+  onRestore={handleRestoreBackup}
+/>
 
 <style>
   .editor-shell {
@@ -603,6 +695,16 @@
 
   .icon-btn-text {
     font-family: var(--font-ui);
+  }
+
+  .icon-btn-danger {
+    color: #9f3434;
+  }
+
+  .icon-btn-danger:hover:not(:disabled) {
+    color: #7f1d1d;
+    background: #fff7f7;
+    border-color: #e7b5b5;
   }
 
   .primary-btn {

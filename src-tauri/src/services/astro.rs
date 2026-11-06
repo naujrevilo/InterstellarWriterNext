@@ -69,7 +69,7 @@ pub fn detect_collections(root: &Path, files: &mut [DocumentRef]) -> Vec<Collect
             // Count documents and assign collection to files
             let mut count = 0;
             for file in files.iter_mut() {
-                if file.relative_path.starts_with(&relative) {
+                if file.relative_path.strip_prefix(&relative).is_some_and(|rest| rest.starts_with('/')) {
                     file.collection = Some(name.clone());
                     count += 1;
                 }
@@ -169,5 +169,21 @@ mod tests {
         let mut files = vec![];
         let collections = detect_collections(root, &mut files);
         assert!(collections.is_empty());
+    }
+
+    #[test]
+    fn collections_with_shared_name_prefix_are_kept_separate() {
+        let dir = tempdir().unwrap();
+        fs::create_dir_all(dir.path().join("src/content/blog")).unwrap();
+        fs::create_dir_all(dir.path().join("src/content/blog-extra")).unwrap();
+        let mut files = vec![DocumentRef::new(
+            "src/content/blog-extra/post.md".to_string(),
+            crate::domain::document::DocumentKind::Markdown,
+        )];
+        let collections = detect_collections(dir.path(), &mut files);
+
+        assert_eq!(files[0].collection.as_deref(), Some("blog-extra"));
+        assert_eq!(collections.iter().find(|c| c.name == "blog").unwrap().document_count, 0);
+        assert_eq!(collections.iter().find(|c| c.name == "blog-extra").unwrap().document_count, 1);
     }
 }

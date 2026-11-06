@@ -20,8 +20,12 @@ pub fn validate_path(root: &Path, relative_path: &str) -> Result<PathBuf, Securi
     // Reject paths with `..` components
     let path = Path::new(relative_path);
     for component in path.components() {
-        if matches!(component, Component::ParentDir) {
-            return Err(SecurityError::Traversal(relative_path.to_string()));
+        match component {
+            Component::ParentDir => return Err(SecurityError::Traversal(relative_path.to_string())),
+            Component::Prefix(_) | Component::RootDir => {
+                return Err(SecurityError::AbsolutePath(relative_path.to_string()));
+            }
+            _ => {}
         }
     }
 
@@ -103,6 +107,14 @@ mod tests {
         let dir = tempdir().unwrap();
         let result = validate_path(dir.path(), "docs/../../etc/passwd");
         assert!(result.is_err());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn rejects_drive_relative_and_rooted_paths() {
+        let dir = tempdir().unwrap();
+        assert!(validate_path(dir.path(), r"C:outside\post.md").is_err());
+        assert!(validate_path(dir.path(), r"\outside\post.md").is_err());
     }
 
     #[test]

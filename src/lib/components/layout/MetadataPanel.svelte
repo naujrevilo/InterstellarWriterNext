@@ -14,6 +14,46 @@
   let fields: MetadataFieldDef[] = $derived(
     selectedFile ? getFieldsForCollection(selectedFile.collection ?? null) : []
   );
+  let customFields = $derived(
+    Object.keys(doc.frontmatter).filter((key) => !fields.some((field) => field.key === key))
+  );
+  let customErrors = $state<Record<string, string>>({});
+  let newFieldName = $state("");
+  let newFieldError = $state("");
+
+  $effect(() => {
+    void selectedFile?.relativePath;
+    customErrors = {};
+    newFieldName = "";
+    newFieldError = "";
+  });
+
+  function addCustomField() {
+    const key = newFieldName.trim();
+    if (!key) {
+      newFieldError = "Enter a field name.";
+      return;
+    }
+    if (Object.hasOwn(doc.frontmatter, key) || fields.some((field) => field.key === key)) {
+      newFieldError = "That field already exists.";
+      return;
+    }
+    updateField(key, "");
+    newFieldName = "";
+    newFieldError = "";
+  }
+
+  function applyCustomField(key: string) {
+    try {
+      const value: unknown = JSON.parse(doc.pendingMetadata[key]);
+      documentStore.applyMetadataDraft(key, value);
+      const nextErrors = { ...customErrors };
+      delete nextErrors[key];
+      customErrors = nextErrors;
+    } catch (error: unknown) {
+      customErrors[key] = error instanceof Error ? error.message : String(error);
+    }
+  }
 
   /** Map widget type → short label rendered as a chip. */
   function fieldTypeBadge(widget: MetadataFieldDef["widget"]): string {
@@ -370,12 +410,94 @@
             {/if}
           </div>
         {/each}
+        <section class="metadata-custom" aria-labelledby="metadata-custom-title">
+          <h3 id="metadata-custom-title">Other fields</h3>
+          <p>Use JSON values to edit additional metadata without changing its type.</p>
+          {#each customFields as key (key)}
+            <div class="metadata-field">
+              <label class="metadata-label" for={`custom-${key}`}>{key}</label>
+              <textarea
+                id={`custom-${key}`}
+                class="metadata-input metadata-textarea metadata-custom-value"
+                rows="2"
+                value={doc.pendingMetadata[key] ?? JSON.stringify(doc.frontmatter[key], null, 2)}
+                oninput={(event) => {
+                  documentStore.updateMetadataDraft(key, (event.currentTarget as HTMLTextAreaElement).value);
+                }}
+              ></textarea>
+              {#if customErrors[key]}
+                <p class="metadata-custom-error" role="alert">Invalid JSON: {customErrors[key]}</p>
+              {/if}
+              <button
+                type="button"
+                class="metadata-custom-button"
+                disabled={doc.pendingMetadata[key] === undefined}
+                onclick={() => applyCustomField(key)}
+              >Apply value</button>
+            </div>
+          {/each}
+          <label class="metadata-label" for="new-metadata-field">Add a field</label>
+          <div class="metadata-custom-add">
+            <input id="new-metadata-field" class="metadata-input" bind:value={newFieldName} placeholder="Field name" />
+            <button type="button" class="metadata-custom-button" onclick={addCustomField}>Add</button>
+          </div>
+          {#if newFieldError}
+            <p class="metadata-custom-error" role="alert">{newFieldError}</p>
+          {/if}
+        </section>
       </div>
     {/if}
   </div>
 </aside>
 
 <style>
+  .metadata-custom {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-rule);
+  }
+  .metadata-custom h3 {
+    margin: 0 0 5px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .metadata-custom > p {
+    color: var(--color-muted);
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .metadata-custom-value {
+    margin-top: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .metadata-custom-add {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .metadata-custom-button {
+    margin-top: 6px;
+    padding: 5px 8px;
+    border: 1px solid var(--color-rule-strong);
+    border-radius: 5px;
+    background: white;
+    color: var(--color-ink);
+    font: 12px var(--font-ui);
+    cursor: pointer;
+  }
+  .metadata-custom-add .metadata-custom-button {
+    margin-top: 0;
+  }
+  .metadata-custom-button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .metadata-custom-error {
+    margin: 5px 0;
+    color: #b91c1c;
+    font-size: 11px;
+  }
   .metadata {
     display: flex;
     flex-direction: column;

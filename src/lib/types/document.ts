@@ -12,6 +12,7 @@ export interface DocumentState {
   body: string;
   raw: string;
   dirty: boolean;
+  pendingMetadata: Record<string, string>;
   history: History;
 }
 
@@ -23,6 +24,7 @@ export function createDocumentState(): DocumentState {
     body: "",
     raw: "",
     dirty: false,
+    pendingMetadata: {},
     history: { past: [], future: [] },
   };
 }

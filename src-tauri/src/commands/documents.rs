@@ -4,8 +4,10 @@ use base64::Engine;
 use tauri::State;
 
 use crate::commands::workspace::WorkspaceState;
-use crate::domain::document::{DocumentKind, ParsedDocument};
+use crate::domain::document::{DocumentKind, DocumentRef, ParsedDocument};
 use crate::domain::frontmatter;
+use crate::domain::workspace::WorkspaceKind;
+use crate::services::astro;
 use crate::services::fs as app_fs;
 use crate::services::security::SecurityError;
 
@@ -23,6 +25,10 @@ pub enum CommandError {
     ImageNotFound(String),
     #[error("unsupported image type: {0}")]
     UnsupportedImageType(String),
+    #[error("select an existing content collection")]
+    InvalidCollection,
+    #[error("a document title is required")]
+    MissingTitle,
 }
 
 impl serde::Serialize for CommandError {
@@ -54,6 +60,60 @@ pub fn read_document(
 }
 
 #[tauri::command]
+pub fn create_document(
+    state: State<'_, WorkspaceState>,
+    title: String,
+    filename: String,
+    collection: Option<String>,
+    directory: String,
+) -> Result<DocumentRef, CommandError> {
+    let root = opened_root(&state)?;
+    create_document_in_root(&root, &title, &filename, collection.as_deref(), &directory)
+}
+
+fn create_document_in_root(
+    root: &Path,
+    title: &str,
+    filename: &str,
+    collection: Option<&str>,
+    directory: &str,
+) -> Result<DocumentRef, CommandError> {
+    let title = title.trim();
+    if title.is_empty() {
+        return Err(CommandError::MissingTitle);
+    }
+
+    let (kind, _) = astro::detect_kind(root);
+    let (destination, collection) = if kind == WorkspaceKind::Astro {
+        let collections = astro::detect_collections(root, &mut []);
+        let selected = collections
+            .into_iter()
+            .find(|item| Some(item.name.as_str()) == collection)
+            .ok_or(CommandError::InvalidCollection)?;
+        (selected.relative_path, Some(selected.name))
+    } else {
+        (directory.to_string(), None)
+    };
+
+    let mut frontmatter = serde_yaml::Mapping::new();
+    frontmatter.insert("title".into(), title.into());
+    let raw = frontmatter::serialize(&frontmatter, "");
+    let relative_path = app_fs::create_file(root, &destination, filename, &raw)?;
+    let document_kind = if filename.ends_with(".mdx") {
+        DocumentKind::Mdx
+    } else {
+        DocumentKind::Markdown
+    };
+    Ok(DocumentRef {
+        relative_path,
+        kind: document_kind,
+        collection,
+        title_hint: Some(title.to_string()),
+        is_draft: false,
+    })
+}
+
+#[tauri::command]
 pub fn write_document(
     app: tauri::AppHandle,
     state: State<'_, WorkspaceState>,
@@ -75,6 +135,61 @@ pub fn write_document(
         expected_raw.as_deref(),
         Some(&backup_root),
     )?;
+    Ok(serde_json::json!({ "ok": true }))
+}
+
+#[tauri::command]
+pub fn list_document_backups(
+    app: tauri::AppHandle,
+    state: State<'_, WorkspaceState>,
+    relative_path: String,
+) -> Result<Vec<String>, CommandError> {
+    use tauri::Manager;
+    let root_path = opened_root(&state)?;
+    let backup_root = app
+        .path()
+        .app_local_data_dir()
+        .map(|p| p.join("backups"))
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    Ok(app_fs::list_backups(
+        &backup_root,
+        &root_path,
+        &relative_path,
+    )?)
+}
+
+#[tauri::command]
+pub fn restore_document_backup(
+    app: tauri::AppHandle,
+    state: State<'_, WorkspaceState>,
+    relative_path: String,
+    backup_name: String,
+    expected_raw: Option<String>,
+) -> Result<serde_json::Value, CommandError> {
+    use tauri::Manager;
+    let root_path = opened_root(&state)?;
+    let backup_root = app
+        .path()
+        .app_local_data_dir()
+        .map(|p| p.join("backups"))
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    app_fs::restore_backup(
+        &backup_root,
+        &root_path,
+        &relative_path,
+        &backup_name,
+        expected_raw.as_deref(),
+    )?;
+    Ok(serde_json::json!({ "ok": true }))
+}
+
+#[tauri::command]
+pub fn move_document_to_trash(
+    state: State<'_, WorkspaceState>,
+    relative_path: String,
+) -> Result<serde_json::Value, CommandError> {
+    let root_path = opened_root(&state)?;
+    app_fs::move_to_trash(&root_path, &relative_path)?;
     Ok(serde_json::json!({ "ok": true }))
 }
 
@@ -233,6 +348,41 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::tempdir;
+
+    #[test]
+    fn creates_a_document_in_the_selected_astro_collection() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("astro.config.mjs"), "").unwrap();
+        fs::create_dir_all(dir.path().join("src/content/blog")).unwrap();
+        fs::create_dir_all(dir.path().join("src/content/projects")).unwrap();
+
+        let doc = create_document_in_root(
+            dir.path(), "A: title", "a-title.mdx", Some("blog"), "../ignored",
+        )
+        .unwrap();
+        assert_eq!(doc.relative_path, "src/content/blog/a-title.mdx");
+        assert_eq!(doc.kind, DocumentKind::Mdx);
+        assert_eq!(doc.collection.as_deref(), Some("blog"));
+        let raw = fs::read_to_string(dir.path().join(&doc.relative_path)).unwrap();
+        assert_eq!(frontmatter::parse(&raw).unwrap().frontmatter["title"], "A: title");
+        assert!(matches!(
+            create_document_in_root(dir.path(), "Test", "other.md", Some("../blog"), ""),
+            Err(CommandError::InvalidCollection)
+        ));
+    }
+
+    #[test]
+    fn creates_in_generic_workspaces_and_rejects_empty_titles() {
+        let dir = tempdir().unwrap();
+        fs::create_dir(dir.path().join("notes")).unwrap();
+        let doc = create_document_in_root(dir.path(), "Title", "note.md", None, "notes").unwrap();
+        assert_eq!(doc.relative_path, "notes/note.md");
+        assert_eq!(doc.kind, DocumentKind::Markdown);
+        assert!(matches!(
+            create_document_in_root(dir.path(), "  ", "empty.md", None, ""),
+            Err(CommandError::MissingTitle)
+        ));
+    }
 
     #[test]
     fn mime_detection_works() {

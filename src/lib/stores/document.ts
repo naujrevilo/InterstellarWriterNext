@@ -14,6 +14,7 @@ function createDocumentStore() {
   );
   let loadRequest = 0;
   let saving = false;
+  let saveCompletion: Promise<void> | null = null;
 
   return {
     subscribe,
@@ -33,6 +34,7 @@ function createDocumentStore() {
           body: parsed.body,
           raw: parsed.raw,
           dirty: false,
+          pendingMetadata: {},
           // Reset history on file load — undo never crosses file
           // boundaries (a basic safety rule).
           history: { past: [], future: [] },
@@ -90,6 +92,27 @@ function createDocumentStore() {
       }));
     },
 
+    updateMetadataDraft(key: string, value: string) {
+      update((s) => ({
+        ...s,
+        dirty: true,
+        pendingMetadata: { ...s.pendingMetadata, [key]: value },
+      }));
+    },
+
+    applyMetadataDraft(key: string, value: unknown) {
+      update((s) => {
+        const pendingMetadata = { ...s.pendingMetadata };
+        delete pendingMetadata[key];
+        return {
+          ...s,
+          frontmatter: { ...s.frontmatter, [key]: value },
+          pendingMetadata,
+          dirty: true,
+        };
+      });
+    },
+
     /** Undo the last body change. No-op if there's nothing to undo. */
     undo() {
       let didUndo = false;
@@ -142,8 +165,16 @@ function createDocumentStore() {
       const current = get({ subscribe });
 
       if (!current.relativePath || !current.dirty) return false;
+      if (Object.keys(current.pendingMetadata).length > 0) {
+        if (!quiet) notifications.error("Apply the pending metadata values before saving.");
+        return false;
+      }
 
       saving = true;
+      let completeSave: () => void = () => {};
+      saveCompletion = new Promise<void>((resolve) => {
+        completeSave = resolve;
+      });
       try {
         const { raw } = await api.serializeDocument(
           current.frontmatter,
@@ -165,7 +196,8 @@ function createDocumentStore() {
           const unchanged =
             s.relativePath === current.relativePath &&
             s.body === current.body &&
-            s.frontmatter === current.frontmatter;
+            s.frontmatter === current.frontmatter &&
+            s.pendingMetadata === current.pendingMetadata;
           if (s.relativePath !== current.relativePath) return s;
           return { ...s, raw, dirty: !unchanged };
         });
@@ -176,7 +208,13 @@ function createDocumentStore() {
         return false;
       } finally {
         saving = false;
+        completeSave();
+        saveCompletion = null;
       }
+    },
+
+    async waitForPendingSave() {
+      await saveCompletion;
     },
 
     /** Clear document state after the caller has authorized any discard. */

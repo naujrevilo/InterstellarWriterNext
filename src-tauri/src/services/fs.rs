@@ -11,6 +11,18 @@ pub enum FsError {
     Io(#[from] std::io::Error),
     #[error("conflict: the file changed on disk since it was opened")]
     Conflict,
+    #[error("backup not found")]
+    BackupNotFound,
+    #[error("only files can be moved to the trash")]
+    NotFile,
+    #[error("could not move file to the system trash: {0}")]
+    Trash(String),
+    #[error("invalid document filename: {0}")]
+    InvalidDocumentName(String),
+    #[error("the destination directory does not exist")]
+    MissingDirectory,
+    #[error("a document with this filename already exists")]
+    AlreadyExists,
 }
 
 /// Number of daily backups kept per document.
@@ -96,6 +108,57 @@ pub fn write_file(root: &Path, relative_path: &str, content: &str) -> Result<(),
     write_file_guarded(root, relative_path, content, None, None)
 }
 
+/// Create a new document without ever replacing an existing file.
+pub fn create_file(
+    root: &Path,
+    directory: &str,
+    filename: &str,
+    content: &str,
+) -> Result<String, FsError> {
+    let stem = filename.rsplit_once('.').map(|(stem, _)| stem).unwrap_or("");
+    let reserved = stem.split('.').next().unwrap_or("").to_ascii_uppercase();
+    if filename.is_empty()
+        || filename.starts_with('.')
+        || filename.ends_with([' ', '.'])
+        || filename.chars().any(|c| c.is_control() || r#"<>:"/\|?*"#.contains(c))
+        || matches!(reserved.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (reserved.len() == 4
+            && (reserved.starts_with("COM") || reserved.starts_with("LPT"))
+            && matches!(reserved.as_bytes()[3], b'1'..=b'9'))
+        || !matches!(filename.rsplit_once('.'), Some((stem, "md" | "mdx")) if !stem.is_empty())
+    {
+        return Err(FsError::InvalidDocumentName(filename.to_string()));
+    }
+
+    let parent = validate_path(root, directory)?;
+    if !parent.is_dir() {
+        return Err(FsError::MissingDirectory);
+    }
+    let normalized_directory = directory
+        .replace('\\', "/")
+        .split('/')
+        .filter(|part| !part.is_empty() && *part != ".")
+        .collect::<Vec<_>>()
+        .join("/");
+    let relative_path = if normalized_directory.is_empty() {
+        filename.to_string()
+    } else {
+        format!("{normalized_directory}/{filename}")
+    };
+    let path = validate_path(root, &relative_path)?;
+    let mut temp = tempfile::NamedTempFile::new_in(&parent)?;
+    use std::io::Write;
+    temp.write_all(content.as_bytes())?;
+    temp.persist_noclobber(&path).map_err(|error| {
+        if error.error.kind() == std::io::ErrorKind::AlreadyExists {
+            FsError::AlreadyExists
+        } else {
+            FsError::Io(error.error)
+        }
+    })?;
+    Ok(relative_path)
+}
+
 /// Like `write_file`, but refuses to overwrite a file that no longer matches
 /// `expected` (changed by another app or device) and backs up the existing
 /// file under `backup_root` first. If the backup fails, nothing is written.
@@ -136,6 +199,98 @@ pub fn write_file_guarded(
     Ok(())
 }
 
+fn is_backup_name(name: &str) -> bool {
+    if name == "latest.bak" {
+        return true;
+    }
+
+    let Some(date) = name.strip_suffix(".bak") else {
+        return false;
+    };
+    let bytes = date.as_bytes();
+    bytes.len() == 10
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes
+            .iter()
+            .enumerate()
+            .all(|(index, byte)| matches!(index, 4 | 7) || byte.is_ascii_digit())
+}
+
+/// List the available backup filenames for a workspace document.
+pub fn list_backups(
+    backup_root: &Path,
+    root: &Path,
+    relative_path: &str,
+) -> Result<Vec<String>, FsError> {
+    validate_path(root, relative_path)?;
+    let dir = backup_dir_for(backup_root, root, relative_path);
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error.into()),
+    };
+
+    let mut backups = Vec::new();
+    for entry in entries {
+        let entry = entry?;
+        if !entry.file_type()?.is_file() {
+            continue;
+        }
+        let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+            continue;
+        };
+        if is_backup_name(&name) {
+            backups.push(name);
+        }
+    }
+
+    backups.sort_by(|a, b| match (a.as_str(), b.as_str()) {
+        ("latest.bak", "latest.bak") => std::cmp::Ordering::Equal,
+        ("latest.bak", _) => std::cmp::Ordering::Less,
+        (_, "latest.bak") => std::cmp::Ordering::Greater,
+        _ => b.cmp(a),
+    });
+    Ok(backups)
+}
+
+/// Restore a backup using the same conflict guard and pre-write backup as a
+/// normal save. Backup names are restricted to the names emitted by
+/// `list_backups`, never accepted as arbitrary paths.
+pub fn restore_backup(
+    backup_root: &Path,
+    root: &Path,
+    relative_path: &str,
+    backup_name: &str,
+    expected: Option<&str>,
+) -> Result<(), FsError> {
+    validate_path(root, relative_path)?;
+    if !is_backup_name(backup_name) {
+        return Err(FsError::BackupNotFound);
+    }
+
+    let backup_path = backup_dir_for(backup_root, root, relative_path).join(backup_name);
+    let raw = match fs::read_to_string(backup_path) {
+        Ok(raw) => raw,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Err(FsError::BackupNotFound);
+        }
+        Err(error) => return Err(error.into()),
+    };
+
+    write_file_guarded(root, relative_path, &raw, expected, Some(backup_root))
+}
+
+/// Move a file inside the workspace to the operating system's trash.
+pub fn move_to_trash(root: &Path, relative_path: &str) -> Result<(), FsError> {
+    let path = validate_path(root, relative_path)?;
+    if !fs::metadata(&path)?.is_file() {
+        return Err(FsError::NotFile);
+    }
+
+    trash::delete(&path).map_err(|error| FsError::Trash(error.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -169,6 +324,45 @@ mod tests {
     }
 
     #[test]
+    fn create_file_never_overwrites_an_existing_document() {
+        let workspace = tempdir().unwrap();
+        fs::create_dir(workspace.path().join("blog")).unwrap();
+        let created = create_file(workspace.path(), "blog", "post.mdx", "first").unwrap();
+        assert_eq!(created, "blog/post.mdx");
+        assert!(matches!(
+            create_file(workspace.path(), "blog", "post.mdx", "second"),
+            Err(FsError::AlreadyExists)
+        ));
+        assert_eq!(fs::read_to_string(workspace.path().join("blog/post.mdx")).unwrap(), "first");
+    }
+
+    #[test]
+    fn create_file_rejects_unsafe_names_and_directories() {
+        let workspace = tempdir().unwrap();
+        for name in ["../post.md", "nested\\post.md", "CON.md", "post.txt", ".hidden.md", "post?.md"] {
+            assert!(matches!(
+                create_file(workspace.path(), "", name, "content"),
+                Err(FsError::InvalidDocumentName(_))
+            ), "{name}");
+        }
+        assert!(create_file(workspace.path(), "../outside", "post.md", "").is_err());
+        assert!(matches!(
+            create_file(workspace.path(), "missing", "post.md", ""),
+            Err(FsError::MissingDirectory)
+        ));
+    }
+
+    #[test]
+    fn created_paths_are_normalized_to_scanner_format() {
+        let workspace = tempdir().unwrap();
+        fs::create_dir(workspace.path().join("notes")).unwrap();
+        assert_eq!(
+            create_file(workspace.path(), "./notes/", "post.md", "").unwrap(),
+            "notes/post.md"
+        );
+    }
+
+    #[test]
     fn guarded_write_detects_external_change_without_mutation() {
         let dir = tempdir().unwrap();
         let backups = tempdir().unwrap();
@@ -193,6 +387,97 @@ mod tests {
         assert_eq!(fs::read_to_string(bdir.join("latest.bak")).unwrap(), "old");
         assert_eq!(fs::read_to_string(bdir.join(format!("{}.bak", today()))).unwrap(), "old");
         assert!(!bdir.starts_with(dir.path()));
+    }
+
+    #[test]
+    fn lists_latest_and_daily_backups_newest_first() {
+        let workspace = tempdir().unwrap();
+        let backups = tempdir().unwrap();
+        let bdir = backup_dir_for(backups.path(), workspace.path(), "a.md");
+        fs::create_dir_all(&bdir).unwrap();
+        fs::write(bdir.join("2025-01-02.bak"), "old").unwrap();
+        fs::write(bdir.join("2025-01-10.bak"), "newer").unwrap();
+        fs::write(bdir.join("latest.bak"), "latest").unwrap();
+        fs::write(bdir.join("notes.txt"), "not a backup").unwrap();
+
+        assert_eq!(
+            list_backups(backups.path(), workspace.path(), "a.md").unwrap(),
+            ["latest.bak", "2025-01-10.bak", "2025-01-02.bak"]
+        );
+    }
+
+    #[test]
+    fn restore_backup_saves_current_version_and_checks_conflicts() {
+        let workspace = tempdir().unwrap();
+        let backups = tempdir().unwrap();
+        fs::write(workspace.path().join("a.md"), "current").unwrap();
+        let bdir = backup_dir_for(backups.path(), workspace.path(), "a.md");
+        fs::create_dir_all(&bdir).unwrap();
+        fs::write(bdir.join("2025-01-02.bak"), "recovered").unwrap();
+
+        restore_backup(
+            backups.path(),
+            workspace.path(),
+            "a.md",
+            "2025-01-02.bak",
+            Some("current"),
+        )
+        .unwrap();
+        assert_eq!(
+            fs::read_to_string(workspace.path().join("a.md")).unwrap(),
+            "recovered"
+        );
+        assert_eq!(
+            fs::read_to_string(bdir.join("latest.bak")).unwrap(),
+            "current"
+        );
+
+        let conflict = restore_backup(
+            backups.path(),
+            workspace.path(),
+            "a.md",
+            "2025-01-02.bak",
+            Some("stale"),
+        );
+        assert!(matches!(conflict, Err(FsError::Conflict)));
+        assert_eq!(
+            fs::read_to_string(workspace.path().join("a.md")).unwrap(),
+            "recovered"
+        );
+    }
+
+    #[test]
+    fn restore_rejects_arbitrary_backup_paths() {
+        let workspace = tempdir().unwrap();
+        let backups = tempdir().unwrap();
+        let result = restore_backup(
+            backups.path(),
+            workspace.path(),
+            "a.md",
+            "../outside.bak",
+            None,
+        );
+        assert!(matches!(result, Err(FsError::BackupNotFound)));
+    }
+
+    #[test]
+    fn moving_a_directory_to_trash_is_rejected() {
+        let workspace = tempdir().unwrap();
+        assert!(matches!(
+            move_to_trash(workspace.path(), "."),
+            Err(FsError::NotFile)
+        ));
+    }
+
+    #[test]
+    fn move_to_trash_removes_file_from_workspace() {
+        let workspace = tempdir().unwrap();
+        let path = workspace.path().join("a.md");
+        fs::write(&path, "document").unwrap();
+
+        move_to_trash(workspace.path(), "a.md").unwrap();
+
+        assert!(!path.exists());
     }
 
     #[test]

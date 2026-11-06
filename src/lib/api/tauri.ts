@@ -3,6 +3,7 @@ import type {
   WorkspaceInfo,
   ParsedDocument,
   DocumentKind,
+  DocumentRef,
 } from "../types/workspace";
 
 function isTauri(): boolean {
@@ -72,6 +73,72 @@ export async function openWorkspace(root: string): Promise<WorkspaceInfo> {
 
 export async function readDocument(relativePath: string): Promise<{ raw: string }> {
   return invoke("read_document", { relativePath });
+}
+
+export async function createDocument(input: {
+  title: string;
+  filename: string;
+  collection: string | null;
+  directory: string;
+}): Promise<DocumentRef> {
+  return invoke("create_document", input);
+}
+
+export async function listDocumentBackups(relativePath: string): Promise<string[]> {
+  return invoke("list_document_backups", { relativePath });
+}
+
+export async function restoreDocumentBackup(
+  relativePath: string,
+  backupName: string,
+  expectedRaw?: string
+): Promise<{ ok: true }> {
+  return invoke("restore_document_backup", {
+    relativePath,
+    backupName,
+    expectedRaw,
+  });
+}
+
+export async function confirmRestoreBackup(
+  relativePath: string,
+  backupLabel: string
+): Promise<boolean> {
+  const { confirm } = await import("@tauri-apps/plugin-dialog");
+  return confirm(
+    `Restore ${backupLabel} for "${relativePath}"? The current file will be backed up first.`,
+    {
+      title: "Restore backup",
+      kind: "warning",
+      okLabel: "Restore",
+      cancelLabel: "Cancel",
+    }
+  );
+}
+
+export async function confirmMoveToTrash(
+  relativePath: string,
+  hasUnsavedChanges: boolean
+): Promise<boolean> {
+  const { confirm } = await import("@tauri-apps/plugin-dialog");
+  const warning = hasUnsavedChanges
+    ? " Unsaved changes will be lost."
+    : "";
+  return confirm(
+    `Move "${relativePath}" to the system trash?${warning}`,
+    {
+      title: "Move document to trash",
+      kind: "warning",
+      okLabel: "Move to Trash",
+      cancelLabel: "Cancel",
+    }
+  );
+}
+
+export async function moveDocumentToTrash(
+  relativePath: string
+): Promise<{ ok: true }> {
+  return invoke("move_document_to_trash", { relativePath });
 }
 
 export async function parseDocument(

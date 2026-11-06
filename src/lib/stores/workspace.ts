@@ -189,6 +189,43 @@ function createWorkspaceStore() {
       return true;
     },
 
+    async createDocument(input: {
+      title: string;
+      filename: string;
+      collection: string | null;
+      directory: string;
+    }): Promise<boolean> {
+      const current = get({ subscribe });
+      if (!current.root || current.loading) return false;
+      if (!(await documentStore.confirmDiscardUnsavedChanges())) return false;
+      await documentStore.waitForPendingSave();
+
+      const latest = get({ subscribe });
+      if (latest.root !== current.root || latest.selectedFile !== current.selectedFile) {
+        notifications.error("The workspace or selected document changed. Please try again.");
+        return false;
+      }
+
+      const file = await api.createDocument(input);
+      if (get({ subscribe }).root !== current.root) {
+        notifications.error(`Created ${file.relativePath}, but the workspace changed before it could be opened.`);
+        return true;
+      }
+      documentStore.reset();
+      update((s) => ({
+        ...s,
+        files: [...s.files.filter((item) => item.relativePath !== file.relativePath), file]
+          .sort((a, b) => a.relativePath.localeCompare(b.relativePath)),
+        collections: s.collections.map((col) =>
+          col.name === file.collection && !s.files.some((item) => item.relativePath === file.relativePath)
+            ? { ...col, documentCount: col.documentCount + 1 }
+            : col
+        ),
+        selectedFile: file,
+      }));
+      return true;
+    },
+
     /**
      * Re-scan the current workspace silently. Used after a save to
      * pick up changes in derived metadata (e.g. `isDraft` flag, which
@@ -229,6 +266,16 @@ function createWorkspaceStore() {
         // real errors.
         console.warn("[workspace] refresh failed:", e?.message ?? e);
       }
+    },
+
+    async trashFile(relativePath: string) {
+      await api.moveDocumentToTrash(relativePath);
+      const current = get({ subscribe: workspaceStore.subscribe });
+      if (current.selectedFile?.relativePath === relativePath) {
+        documentStore.reset();
+        update((s) => ({ ...s, selectedFile: null }));
+      }
+      await workspaceStore.refresh();
     },
 
     /** Cancel the current in-flight scan, if any, and reset loading state. */
