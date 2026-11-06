@@ -1,0 +1,135 @@
+/* Editor typography — the writing surface */
+
+.editor-prose {
+  font-family: var(--font-editor);
+  font-size: var(--text-lg);
+  line-height: 1.7;
+  color: var(--color-ink);
+  max-width: var(--editor-max-width);
+  margin: 0 auto;
+}
+
+.editor-prose h1 {
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  line-height: 1.2;
+  margin-top: var(--space-12);
+  margin-bottom: var(--space-4);
+  letter-spacing: -0.02em;
+}
+
+.editor-prose h2 {
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: var(--space-8);
+  margin-bottom: var(--space-3);
+  letter-spacing: -0.01em;
+}
+
+.editor-prose h3 {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: var(--space-6);
+  margin-bottom: var(--space-2);
+}
+
+.editor-prose p {
+  margin-top: 0;
+  margin-bottom: var(--space-4);
+}
+
+.editor-prose strong {
+  font-weight: 600;
+}
+
+.editor-prose em {
+  font-style: italic;
+}
+
+.editor-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--color-chrome);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+.editor-prose pre {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  background: var(--color-chrome);
+  padding: var(--space-4);
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.editor-prose pre code {
+  background: none;
+  padding: 0;
+}
+
+.editor-prose blockquote {
+  border-left: 3px solid var(--color-rule);
+  margin-left: 0;
+  padding-left: var(--space-4);
+  color: var(--color-muted);
+  font-style: italic;
+}
+
+.editor-prose ul, .editor-prose ol {
+  padding-left: var(--space-6);
+  margin-bottom: var(--space-4);
+}
+
+.editor-prose ul {
+  list-style: disc;
+}
+.editor-prose ol {
+  list-style: decimal;
+}
+
+.editor-prose li {
+  margin-bottom: var(--space-1);
+  list-style: inherit;
+}
+
+.editor-prose hr {
+  border: none;
+  border-top: 1px solid var(--color-rule);
+  margin: var(--space-8) 0;
+}
+
+.editor-prose a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.editor-prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Mermaid placeholder */
+.mermaid-placeholder {
+  background: var(--color-chrome);
+  border: 1px dashed var(--color-rule);
+  border-radius: 4px;
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--color-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+}
+
+.mermaid-placeholder code {
+  display: block;
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-ink);
+  text-align: left;
+}

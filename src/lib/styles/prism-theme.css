@@ -1,0 +1,112 @@
+/* ----- Custom Prism theme for the Interstellar Writer preview. -----
+   Sits on the warm dark block background (#1F1B16) used by
+   .code-block. Tokens follow the iA Writer / Bear sensibility:
+   quiet, paper-adjacent, no neon, no rainbow. ----- */
+
+/* Reset Prism's defaults so we inherit our own typography. */
+.code-block-pre code,
+.code-block-pre code[class*="language-"],
+.code-block-pre pre[class*="language-"] {
+  color: #E5E1DA;
+  background: transparent;
+  text-shadow: none;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  direction: ltr;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  word-wrap: normal;
+  tab-size: 2;
+  hyphens: none;
+}
+
+/* Comments — quiet, italic, paper-grey. */
+.code-block-pre .token.comment,
+.code-block-pre .token.prolog,
+.code-block-pre .token.doctype,
+.code-block-pre .token.cdata {
+  color: #6B6660;
+  font-style: italic;
+}
+
+/* Punctuation — slightly muted so it recedes. */
+.code-block-pre .token.punctuation {
+  color: #8B857C;
+}
+
+/* Properties, tags, symbols, deletions — soft pink. */
+.code-block-pre .token.property,
+.code-block-pre .token.tag,
+.code-block-pre .token.constant,
+.code-block-pre .token.symbol,
+.code-block-pre .token.deleted {
+  color: #F0A5C0;
+}
+
+/* Booleans, numbers — amber, easy to spot. */
+.code-block-pre .token.boolean,
+.code-block-pre .token.number {
+  color: #F2B774;
+}
+
+/* Strings, attributes, builtins — sage green, never neon. */
+.code-block-pre .token.selector,
+.code-block-pre .token.attr-name,
+.code-block-pre .token.string,
+.code-block-pre .token.char,
+.code-block-pre .token.builtin,
+.code-block-pre .token.inserted {
+  color: #95C68E;
+}
+
+/* Operators, entities, URLs — slate. */
+.code-block-pre .token.operator,
+.code-block-pre .token.entity,
+.code-block-pre .token.url,
+.code-block-pre .language-css .token.string,
+.code-block-pre .style .token.string,
+.code-block-pre .token.variable {
+  color: #94A3B8;
+}
+
+/* Atrules, attribute values, functions, class names — light violet. */
+.code-block-pre .token.atrule,
+.code-block-pre .token.attr-value,
+.code-block-pre .token.function,
+.code-block-pre .token.class-name {
+  color: #C4B5FD;
+}
+
+/* Keywords — violet that matches the editor accent but a touch
+   lighter so it doesn't shout against the dark background. */
+.code-block-pre .token.keyword {
+  color: #B5A1F5;
+  font-weight: 500;
+}
+
+/* Regex, important — yellow. */
+.code-block-pre .token.regex,
+.code-block-pre .token.important {
+  color: #E8C97A;
+}
+
+/* Bold/italic modifiers. */
+.code-block-pre .token.important,
+.code-block-pre .token.bold {
+  font-weight: 600;
+}
+.code-block-pre .token.italic {
+  font-style: italic;
+}
+
+/* Markdown / frontmatter niceties. */
+.code-block-pre .token.title {
+  color: #E5E1DA;
+  font-weight: 600;
+}
+.code-block-pre .token.url {
+  color: #95C68E;
+}

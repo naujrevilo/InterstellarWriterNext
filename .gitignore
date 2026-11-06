@@ -1,0 +1,38 @@
+# Local Pi runtime state
+.atl/
+.mimocode/
+
+# Dependencies
+node_modules/
+.pnpm-store/
+bun.lock
+
+# Build output
+dist/
+src-tauri/target/
+*.tsbuildinfo
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS junk
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# Editor / IDE state
+.idea/
+.vscode/
+*.swp
+*.swo
