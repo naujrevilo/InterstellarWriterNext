@@ -19,6 +19,7 @@
   let redoable = $derived($canRedo);
   let { previewMode, focusMode, leftSidebarOpen, rightSidebarOpen } = $derived($uiStore);
   let { editorFont } = $derived($preferencesStore);
+  const AUTOSAVE_DELAY_MS = 2500;
 
   let settingsOpen = $state(false);
   let hasGithubToken = $derived($githubTokenStore.configured);
@@ -43,6 +44,19 @@
       await preferencesStore.migrateLegacyToken();
       await githubTokenStore.refresh();
     })();
+  });
+
+  // Quiet autosave: waits for a pause in typing, never interrupts.
+  $effect(() => {
+    if (!$preferencesStore.autosave || !doc.dirty || !doc.relativePath) return;
+    void doc.body;
+    void doc.frontmatter;
+    const timer = setTimeout(() => {
+      void documentStore.save({ quiet: true }).then((written) => {
+        if (written) lastSavedAt = Date.now();
+      });
+    }, AUTOSAVE_DELAY_MS);
+    return () => clearTimeout(timer);
   });
 
   function handleInput(value: string) {
@@ -257,6 +271,17 @@
           }
         >
           {doc.dirty ? "Save" : saveFlash ? "Saved ✓" : "Saved"}
+        </button>
+
+        <button
+          onclick={() => preferencesStore.setAutosave(!$preferencesStore.autosave)}
+          class="icon-btn icon-btn-text"
+          aria-pressed={$preferencesStore.autosave}
+          title={$preferencesStore.autosave
+            ? "Autosave is on: saves 2.5 s after you stop typing. Click to turn off."
+            : "Autosave is off. Click to save automatically after you stop typing."}
+        >
+          {$preferencesStore.autosave ? "Autosave on" : "Autosave off"}
         </button>
 
         <button

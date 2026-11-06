@@ -13,6 +13,7 @@ function createDocumentStore() {
     createDocumentState()
   );
   let loadRequest = 0;
+  let saving = false;
 
   return {
     subscribe,
@@ -129,11 +130,20 @@ function createDocumentStore() {
       return didRedo;
     },
 
-    async save() {
+    /**
+     * Save the document. With `quiet` (autosave) nothing interrupts the
+     * writer: no toast, no dialog. A conflict with an external change
+     * leaves the document dirty so the next manual save asks.
+     * Returns true when the file was written.
+     */
+    async save(options: { quiet?: boolean } = {}): Promise<boolean> {
+      const quiet = options.quiet === true;
+      if (saving) return false;
       const current = get({ subscribe });
 
-      if (!current.relativePath || !current.dirty) return;
+      if (!current.relativePath || !current.dirty) return false;
 
+      saving = true;
       try {
         const { raw } = await api.serializeDocument(
           current.frontmatter,
@@ -144,15 +154,28 @@ function createDocumentStore() {
           await api.writeDocument(current.relativePath, raw, current.raw);
         } catch (e: any) {
           if (!String(e?.message ?? e).startsWith("fs: conflict")) throw e;
-          if (!(await api.confirmOverwriteExternalChanges())) return;
+          if (quiet) return false;
+          if (!(await api.confirmOverwriteExternalChanges())) return false;
           // Overwrite is deliberate: skip the check, the backup still runs.
           const onDisk = await api.readDocument(current.relativePath);
           await api.writeDocument(current.relativePath, raw, onDisk.raw);
         }
-        update((s) => ({ ...s, raw, dirty: false }));
-        notifications.success("Saved");
+        update((s) => {
+          // Typing during the write keeps the document dirty.
+          const unchanged =
+            s.relativePath === current.relativePath &&
+            s.body === current.body &&
+            s.frontmatter === current.frontmatter;
+          if (s.relativePath !== current.relativePath) return s;
+          return { ...s, raw, dirty: !unchanged };
+        });
+        if (!quiet) notifications.success("Saved");
+        return true;
       } catch (e: any) {
         notifications.error(`Failed to save: ${e?.message ?? e}`);
+        return false;
+      } finally {
+        saving = false;
       }
     },
 

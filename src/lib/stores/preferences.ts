@@ -25,6 +25,8 @@ interface PreferencesState {
   uiFont: string;
   /** When true, the editor prompts for a sync after every save. */
   syncOnSave: boolean;
+  /** Save quietly a few seconds after typing stops. Off by default. */
+  autosave: boolean;
   /**
    * Path to the project's MDX figure/image wrapper component,
    * relative to a content file in `src/content/`. Used by the
@@ -43,6 +45,7 @@ const DEFAULTS: PreferencesState = {
   editorFont: "Newsreader",
   uiFont: "Inter",
   syncOnSave: false,
+  autosave: false,
   figureComponentPath: "",
 };
 
@@ -82,6 +85,7 @@ function loadInitial(): PreferencesState {
       editorFont: typeof parsed.editorFont === "string" ? parsed.editorFont : DEFAULTS.editorFont,
       uiFont: typeof parsed.uiFont === "string" ? parsed.uiFont : DEFAULTS.uiFont,
       syncOnSave: typeof parsed.syncOnSave === "boolean" ? parsed.syncOnSave : DEFAULTS.syncOnSave,
+      autosave: typeof parsed.autosave === "boolean" ? parsed.autosave : DEFAULTS.autosave,
       figureComponentPath:
         typeof parsed.figureComponentPath === "string"
           ? parsed.figureComponentPath
@@ -160,6 +164,9 @@ function createPreferencesStore() {
     },
     setSyncOnSave(value: boolean) {
       commit((s) => ({ ...s, syncOnSave: value }));
+    },
+    setAutosave(value: boolean) {
+      commit((s) => ({ ...s, autosave: value }));
     },
     setFigureComponentPath(path: string) {
       commit((s) => ({ ...s, figureComponentPath: path }));
