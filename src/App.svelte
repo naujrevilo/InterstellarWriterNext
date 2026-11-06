@@ -5,6 +5,7 @@
   import EditorPanel from "./lib/components/layout/EditorPanel.svelte";
   import MetadataPanel from "./lib/components/layout/MetadataPanel.svelte";
   import Toast from "./lib/components/shared/Toast.svelte";
+  import CommandPalette from "./lib/components/shared/CommandPalette.svelte";
 
   let { leftSidebarOpen, rightSidebarOpen, focusMode } = $derived($uiStore);
   let { root, selectedFile } = $derived($workspaceStore);
@@ -33,6 +34,23 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
+    const mod = e.ctrlKey || e.metaKey;
+    // Ctrl+K opens the command palette, Ctrl+/ the shortcuts reference.
+    // Both work while typing: neither combination means anything in the editor.
+    if (mod && !e.shiftKey && !e.altKey && (e.key === "k" || e.key === "K")) {
+      e.preventDefault();
+      if ($uiStore.paletteOpen) uiStore.closePalette();
+      else uiStore.openPalette();
+      return;
+    }
+    if (mod && !e.shiftKey && !e.altKey && e.key === "/") {
+      e.preventDefault();
+      if ($uiStore.helpOpen) uiStore.closeHelp();
+      else uiStore.openHelp();
+      return;
+    }
+    // Panel toggles must not act behind an open dialog.
+    if ($uiStore.paletteOpen || $uiStore.helpOpen) return;
     // Escape exits focus mode
     if (e.key === "Escape" && focusMode) {
       uiStore.toggleFocusMode();
@@ -81,6 +99,7 @@
 </div>
 
 <Toast />
+<CommandPalette />
 
 <style>
   .app-shell {

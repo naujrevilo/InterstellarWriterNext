@@ -5,6 +5,8 @@ interface UiState {
   rightSidebarOpen: boolean;
   focusMode: boolean;
   previewMode: boolean;
+  paletteOpen: boolean;
+  helpOpen: boolean;
 }
 
 function createUiStore() {
@@ -13,10 +15,24 @@ function createUiStore() {
     rightSidebarOpen: true,
     focusMode: false,
     previewMode: false,
+    paletteOpen: false,
+    helpOpen: false,
   });
 
   return {
     subscribe,
+    openPalette() {
+      update((s) => ({ ...s, paletteOpen: true, helpOpen: false }));
+    },
+    closePalette() {
+      update((s) => ({ ...s, paletteOpen: false }));
+    },
+    openHelp() {
+      update((s) => ({ ...s, helpOpen: true, paletteOpen: false }));
+    },
+    closeHelp() {
+      update((s) => ({ ...s, helpOpen: false }));
+    },
     toggleLeftSidebar() {
       update((s) => ({ ...s, leftSidebarOpen: !s.leftSidebarOpen }));
     },

@@ -3,6 +3,7 @@
   import { documentStore, canUndo, canRedo } from "../../stores/document";
   import { uiStore } from "../../stores/ui";
   import { preferencesStore } from "../../stores/preferences";
+  import { setSaveHandler } from "../../features/commands/registry";
   import { githubSyncStore, githubTokenStore } from "../../stores/github";
   import { notifications } from "../../stores/notifications";
   import { toRelativePath, basenameNoExt } from "../../utils/paths";
@@ -85,6 +86,11 @@
       handleSave();
     }
   }
+
+  $effect(() => {
+    setSaveHandler(handleSave);
+    return () => setSaveHandler(null);
+  });
 
   /**
    * Open a native file picker, compute a workspace-relative path from
